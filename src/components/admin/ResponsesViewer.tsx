@@ -23,11 +23,17 @@ interface Props {
 
 type SubView = 'resumen' | 'pregunta' | 'individual';
 
-function csvEscape(value: string) {
-  if (/[",\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
+function xmlEscape(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function xmlCell(value: string) {
+  return `<Cell><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`;
 }
 
 export default function ResponsesViewer({
@@ -56,17 +62,38 @@ export default function ResponsesViewer({
     setToggling(false);
   }
 
-  function handleExportCsv() {
-    const headers = answerableQuestions.map((q) => q.label);
-    const rows = responses.map((r) =>
-      answerableQuestions.map((q) => csvEscape(r.answers[q.label] ?? '')).join(','),
-    );
-    const csv = [headers.map(csvEscape).join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  function handleExportExcel() {
+    const headers = ['Marca temporal', ...answerableQuestions.map((q) => q.label)];
+    const headerRow = `<Row>${headers.map(xmlCell).join('')}</Row>`;
+    const dataRows = responses
+      .map((r) => {
+        const cells = [
+          new Date(r.submittedAt).toLocaleString('es-CR'),
+          ...answerableQuestions.map((q) => r.answers[q.label] ?? ''),
+        ];
+        return `<Row>${cells.map(xmlCell).join('')}</Row>`;
+      })
+      .join('');
+
+    const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="Respuestas">
+  <Table>
+   ${headerRow}
+   ${dataRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'respuestas.csv';
+    a.download = 'respuestas.xls';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -101,10 +128,10 @@ export default function ResponsesViewer({
           <h2 className="text-xl font-semibold text-gray-800">{responses.length} respuestas</h2>
           <button
             type="button"
-            onClick={handleExportCsv}
+            onClick={handleExportExcel}
             className="text-sm border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50"
           >
-            Exportar CSV
+            Exportar a Excel
           </button>
         </div>
 
