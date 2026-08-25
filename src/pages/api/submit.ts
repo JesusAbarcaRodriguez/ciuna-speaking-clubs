@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
+import { eq } from 'drizzle-orm';
 import { db } from '../../db/client';
-import { questions, responses } from '../../db/schema';
+import { formMeta, questions, responses } from '../../db/schema';
 
 export const prerender = false;
 
@@ -10,6 +11,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!answers || typeof answers !== 'object') {
     return jsonError('Respuestas inválidas.');
+  }
+
+  const [meta] = await db.select().from(formMeta).where(eq(formMeta.id, 1));
+  if (meta && !meta.acceptingResponses) {
+    return jsonError('Este formulario ya no acepta respuestas.');
   }
 
   const email = answers['Correo electrónico'];

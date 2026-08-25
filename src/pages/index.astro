@@ -41,12 +41,18 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
             )}
           </p>
         </div>
-        <div class="border-t border-gray-200 px-6 sm:px-8 py-3">
-          <p class="text-red-600 text-sm">* Indica que la pregunta es obligatoria</p>
-        </div>
+        {meta && !meta.acceptingResponses ? (
+          <div class="border-t border-gray-200 px-6 sm:px-8 py-4 bg-amber-50">
+            <p class="text-gray-700 text-sm">Este formulario ya no acepta respuestas.</p>
+          </div>
+        ) : (
+          <div class="border-t border-gray-200 px-6 sm:px-8 py-3">
+            <p class="text-red-600 text-sm">* Indica que la pregunta es obligatoria</p>
+          </div>
+        )}
       </div>
 
-      {questionRows.map((q) => {
+      {meta?.acceptingResponses && questionRows.map((q) => {
         const fieldId = `q-${q.id}`;
         if (q.type === 'info') {
           const image = q.imageKey ? images[q.imageKey] : undefined;
@@ -120,21 +126,25 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
         );
       })}
 
-      <p class="text-xs text-gray-500 px-2">
-        Se enviará un correo electrónico con una copia de tus respuestas a la dirección que
-        suministraste.
-      </p>
+      {meta?.acceptingResponses && (
+        <>
+          <p class="text-xs text-gray-500 px-2">
+            Se enviará un correo electrónico con una copia de tus respuestas a la dirección que
+            suministraste.
+          </p>
 
-      <p id="form-error" class="hidden text-red-600 text-sm px-2"></p>
+          <p id="form-error" class="hidden text-red-600 text-sm px-2"></p>
 
-      <div class="flex items-center justify-between px-2">
-        <button
-          type="submit"
-          class="bg-brand hover:bg-indigo-600 text-white font-medium rounded-md px-6 py-2 transition-colors"
-        >
-          Enviar
-        </button>
-      </div>
+          <div class="flex items-center justify-between px-2">
+            <button
+              type="submit"
+              class="bg-brand hover:bg-indigo-600 text-white font-medium rounded-md px-6 py-2 transition-colors"
+            >
+              Enviar
+            </button>
+          </div>
+        </>
+      )}
     </form>
 
     <div id="registration-success" class="hidden max-w-[700px] mx-auto">
@@ -152,7 +162,7 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    errorNote.classList.add('hidden');
+    errorNote?.classList.add('hidden');
 
     const formData = new FormData(form);
     const answers: Record<string, string> = {};
@@ -172,8 +182,10 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        errorNote.textContent = data.error || 'Ocurrió un error al enviar el formulario.';
-        errorNote.classList.remove('hidden');
+        if (errorNote) {
+          errorNote.textContent = data.error || 'Ocurrió un error al enviar el formulario.';
+          errorNote.classList.remove('hidden');
+        }
         submitButton.disabled = false;
         return;
       }
@@ -181,8 +193,10 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
       form.classList.add('hidden');
       successBox.classList.remove('hidden');
     } catch {
-      errorNote.textContent = 'No se pudo conectar con el servidor. Intenta de nuevo.';
-      errorNote.classList.remove('hidden');
+      if (errorNote) {
+        errorNote.textContent = 'No se pudo conectar con el servidor. Intenta de nuevo.';
+        errorNote.classList.remove('hidden');
+      }
       submitButton.disabled = false;
     }
   });

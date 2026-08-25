@@ -26,7 +26,6 @@ interface EditableQuestion {
 interface Props {
   initialMeta: { title: string; description: string };
   initialQuestions: QuestionRow[];
-  publicUrl: string;
 }
 
 const TYPE_LABELS: Record<QuestionType, string> = {
@@ -55,13 +54,12 @@ function toEditable(q: QuestionRow): EditableQuestion {
   };
 }
 
-export default function AdminEditor({ initialMeta, initialQuestions, publicUrl }: Props) {
+export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
   const [title, setTitle] = useState(initialMeta.title);
   const [description, setDescription] = useState(initialMeta.description);
   const [items, setItems] = useState<EditableQuestion[]>(() => initialQuestions.map(toEditable));
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [copyLabel, setCopyLabel] = useState('Copiar enlace');
 
   function updateItem(key: string, patch: Partial<EditableQuestion>) {
     setItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
@@ -95,22 +93,6 @@ export default function AdminEditor({ initialMeta, initialQuestions, publicUrl }
         imageKey: '',
       },
     ]);
-  }
-
-  async function handleCopyLink() {
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-      setCopyLabel('¡Copiado!');
-      setTimeout(() => setCopyLabel('Copiar enlace'), 2000);
-    } catch {
-      setCopyLabel('No se pudo copiar');
-      setTimeout(() => setCopyLabel('Copiar enlace'), 2000);
-    }
-  }
-
-  async function handleLogout() {
-    await fetch('/api/admin/logout', { method: 'POST' });
-    window.location.href = '/admin/login';
   }
 
   async function handleSave() {
@@ -153,34 +135,6 @@ export default function AdminEditor({ initialMeta, initialQuestions, publicUrl }
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-gray-800">Editar formulario</h1>
-        <div className="flex items-center gap-2">
-          <a
-            href={publicUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-brand hover:underline"
-          >
-            Ver formulario público
-          </a>
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50"
-          >
-            {copyLabel}
-          </button>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50"
-          >
-            Cerrar sesión
-          </button>
-        </div>
-      </div>
-
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
         <div>
           <label className="block text-sm text-gray-700 mb-1">Título del formulario</label>

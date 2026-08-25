@@ -1,14 +1,15 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import AdminEditor from '../../components/admin/AdminEditor';
+import AdminPanel from '../../components/admin/AdminPanel';
 import { db } from '../../db/client';
-import { formMeta, questions } from '../../db/schema';
-import { eq } from 'drizzle-orm';
+import { formMeta, questions, responses } from '../../db/schema';
+import { eq, desc } from 'drizzle-orm';
 
 export const prerender = false;
 
 const [meta] = await db.select().from(formMeta).where(eq(formMeta.id, 1));
 const questionRows = await db.select().from(questions).orderBy(questions.order);
+const responseRows = await db.select().from(responses).orderBy(desc(responses.submittedAt));
 
 const publicUrl = new URL('/', Astro.url).toString();
 ---
@@ -16,10 +17,15 @@ const publicUrl = new URL('/', Astro.url).toString();
 <Layout titulo="Editar formulario - Speaking Clubs">
   <div class="min-h-screen bg-[#f0ead6] py-8 px-4">
     <div class="max-w-[800px] mx-auto">
-      <AdminEditor
+      <AdminPanel
         client:load
-        initialMeta={meta ?? { title: '', description: '' }}
+        initialMeta={meta ?? { title: '', description: '', acceptingResponses: true }}
         initialQuestions={questionRows}
+        initialResponses={responseRows.map((r) => ({
+          id: r.id,
+          submittedAt: r.submittedAt.toISOString(),
+          answers: r.answers,
+        }))}
         publicUrl={publicUrl}
       />
     </div>

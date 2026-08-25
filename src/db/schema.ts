@@ -4,6 +4,7 @@ export const formMeta = pgTable('form_meta', {
   id: integer('id').primaryKey().default(1),
   title: text('title').notNull(),
   description: text('description').notNull(),
+  acceptingResponses: boolean('accepting_responses').notNull().default(true),
 });
 
 export const questionTypes = ['short_text', 'email', 'select', 'radio', 'info'] as const;
