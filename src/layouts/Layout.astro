@@ -1,6 +1,5 @@
 ---
 import '../styles/global.css';
-import LanguageSwitcher from '../components/ui/LanguageSwitcher';
 interface Props {
   titulo?: string;
 }
@@ -16,9 +15,6 @@ const { titulo = 'Ciuna Speaking Clubs' } = Astro.props;
     <title>{titulo}</title>
   </head>
   <body>
-    <div class="fixed top-4 right-4 z-50">
-      <LanguageSwitcher client:load />
-    </div>
     <slot />
   </body>
 </html>

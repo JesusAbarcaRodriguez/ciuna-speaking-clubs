@@ -1,0 +1,27 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import AdminEditor from '../../components/admin/AdminEditor';
+import { db } from '../../db/client';
+import { formMeta, questions } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+export const prerender = false;
+
+const [meta] = await db.select().from(formMeta).where(eq(formMeta.id, 1));
+const questionRows = await db.select().from(questions).orderBy(questions.order);
+
+const publicUrl = new URL('/', Astro.url).toString();
+---
+
+<Layout titulo="Editar formulario - Speaking Clubs">
+  <div class="min-h-screen bg-[#f0ead6] py-8 px-4">
+    <div class="max-w-[800px] mx-auto">
+      <AdminEditor
+        client:load
+        initialMeta={meta ?? { title: '', description: '' }}
+        initialQuestions={questionRows}
+        publicUrl={publicUrl}
+      />
+    </div>
+  </div>
+</Layout>

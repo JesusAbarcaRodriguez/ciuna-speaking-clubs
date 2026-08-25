@@ -9,16 +9,22 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.4",
+    "@astrojs/vercel": "^11.0.8",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "astro": "^7.2.6",
+    "drizzle-orm": "^0.45.2",
     "i18next": "^26.4.0",
     "i18next-browser-languagedetector": "^8.2.1",
+    "postgres": "^3.4.9",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-i18next": "^17.0.12",
@@ -26,5 +32,13 @@
   },
   "allowScripts": {
     "esbuild": true
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/node": "^26.3.0",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3"
   }
 }
