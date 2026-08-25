@@ -54,7 +54,7 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
               <h2 class="font-bold text-gray-800 mb-4">{q.label}</h2>
               {image && (
-                <Image src={image} alt={q.label} class="w-full h-auto max-w-lg" />
+                <Image src={image} alt={q.label} class="block w-full h-auto max-w-lg mx-auto" />
               )}
             </div>
           );
