@@ -1,5 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
-import { SESSION_COOKIE, verifySessionToken } from './lib/auth';
+import { createSupabaseServerClient } from './lib/supabase/server';
 
 const PUBLIC_ADMIN_PATHS = new Set(['/admin/login', '/api/admin/login']);
 
@@ -11,10 +11,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  const token = context.cookies.get(SESSION_COOKIE)?.value;
-  const isValid = await verifySessionToken(token);
+  const supabase = createSupabaseServerClient(context.request, context.cookies);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!isValid) {
+  if (!user) {
     if (pathname.startsWith('/api/admin')) {
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
         status: 401,

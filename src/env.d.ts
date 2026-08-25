@@ -2,8 +2,8 @@
 
 interface ImportMetaEnv {
   readonly DATABASE_URL: string;
-  readonly ADMIN_PASSWORD: string;
-  readonly SESSION_SECRET: string;
+  readonly PUBLIC_SUPABASE_URL: string;
+  readonly PUBLIC_SUPABASE_ANON_KEY: string;
 }
 
 interface ImportMeta {
