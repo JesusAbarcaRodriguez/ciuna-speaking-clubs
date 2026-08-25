@@ -81,10 +81,10 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
 
         if (q.type === 'radio') {
           return (
-            <fieldset class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
-              <legend class="font-bold text-gray-800 mb-4 px-0">
+            <div role="group" aria-label={q.label} class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
+              <p class="font-bold text-gray-800 mb-4">
                 {q.label} {q.required && <span class="text-red-600">*</span>}
-              </legend>
+              </p>
               <div class="space-y-4">
                 {(q.options || []).map((opt) => (
                   <label class="flex items-center gap-3 cursor-pointer">
@@ -99,7 +99,7 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
                   </label>
                 ))}
               </div>
-            </fieldset>
+            </div>
           );
         }
 
