@@ -47,8 +47,12 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     await db.insert(responses).values({ answers });
   } catch (err) {
-    if (isClubFullError(err)) {
+    const message = extractPgErrorMessage(err);
+    if (message?.includes('CLUB_FULL')) {
       return jsonError('Ese club ya alcanzó el cupo máximo. Por favor elige otro.');
+    }
+    if (message?.includes('EMAIL_DUPLICATE')) {
+      return jsonError('Ese correo ya se registró esta semana. Solo se permite una inscripción por correo.');
     }
     throw err;
   }
@@ -59,17 +63,22 @@ export const POST: APIRoute = async ({ request }) => {
   });
 };
 
-function isClubFullError(err: unknown): boolean {
+// Drizzle envuelve el error real de Postgres en su propio DrizzleQueryError;
+// el mensaje que nos importa (ej. "CLUB_FULL:..." o "EMAIL_DUPLICATE:...")
+// queda anidado en `.cause`, no en el mensaje de nivel superior.
+function extractPgErrorMessage(err: unknown): string | null {
   let current: unknown = err;
   for (let i = 0; i < 5 && current; i++) {
     if (current instanceof Error) {
-      if (current.message.includes('CLUB_FULL')) return true;
+      if (current.message.includes('CLUB_FULL') || current.message.includes('EMAIL_DUPLICATE')) {
+        return current.message;
+      }
       current = current.cause;
     } else {
       break;
     }
   }
-  return false;
+  return null;
 }
 
 function jsonError(message: string) {
