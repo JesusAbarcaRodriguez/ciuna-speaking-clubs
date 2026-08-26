@@ -13,3 +13,12 @@ export const GET: APIRoute = async () => {
     headers: { 'Content-Type': 'application/json' },
   });
 };
+
+export const DELETE: APIRoute = async () => {
+  await db.delete(responses);
+
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};

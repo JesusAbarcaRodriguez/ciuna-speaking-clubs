@@ -35,9 +35,10 @@ export default function ResponsesViewer({
   initialResponses,
   initialAcceptingResponses,
 }: Props) {
-  const [responses] = useState(initialResponses);
+  const [responses, setResponses] = useState(initialResponses);
   const [acceptingResponses, setAcceptingResponses] = useState(initialAcceptingResponses);
   const [toggling, setToggling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [subView, setSubView] = useState<SubView>('resumen');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [responseIndex, setResponseIndex] = useState(0);
@@ -80,6 +81,22 @@ export default function ResponsesViewer({
     URL.revokeObjectURL(url);
   }
 
+  async function handleDeleteAll() {
+    const confirmed = window.confirm(
+      `¿Eliminar las ${responses.length} respuestas? Esta acción no se puede deshacer.`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    const res = await fetch('/api/admin/responses', { method: 'DELETE' });
+    if (res.ok) {
+      setResponses([]);
+      setQuestionIndex(0);
+      setResponseIndex(0);
+    }
+    setDeleting(false);
+  }
+
   if (responses.length === 0) {
     return (
       <div className="space-y-4">
@@ -106,13 +123,23 @@ export default function ResponsesViewer({
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="text-xl font-semibold text-gray-800">{responses.length} respuestas</h2>
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50"
-          >
-            Exportar a Excel
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50"
+            >
+              Exportar a Excel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAll}
+              disabled={deleting}
+              className="text-sm border border-red-200 text-red-600 rounded-md px-3 py-1.5 hover:bg-red-50 disabled:opacity-50"
+            >
+              {deleting ? 'Eliminando...' : 'Eliminar todas'}
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-1 border-b border-gray-200">
