@@ -1,9 +1,12 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import Footer from '../../components/Footer.astro';
 import AdminPanel from '../../components/admin/AdminPanel';
 import { db } from '../../db/client';
 import { formMeta, questions, responses } from '../../db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { getImage } from 'astro:assets';
+import logoCiuna from '../../images/logo-ciuna.png';
 
 export const prerender = false;
 
@@ -12,11 +15,12 @@ const questionRows = await db.select().from(questions).orderBy(questions.order);
 const responseRows = await db.select().from(responses).orderBy(desc(responses.submittedAt));
 
 const publicUrl = new URL('/', Astro.url).toString();
+const logo = await getImage({ src: logoCiuna, width: 80, height: 80 });
 ---
 
 <Layout titulo="Editar formulario - Speaking Clubs">
-  <div class="min-h-screen bg-[#f0ead6] py-8 px-4">
-    <div class="max-w-[800px] mx-auto">
+  <div class="min-h-screen bg-[#f0ead6] py-8 px-4 flex flex-col">
+    <div class="max-w-[800px] mx-auto w-full flex-1">
       <AdminPanel
         client:load
         initialMeta={meta ?? { title: '', description: '', acceptingResponses: true }}
@@ -27,7 +31,9 @@ const publicUrl = new URL('/', Astro.url).toString();
           answers: r.answers,
         }))}
         publicUrl={publicUrl}
+        logoUrl={logo.src}
       />
     </div>
+    <Footer />
   </div>
 </Layout>

@@ -27,6 +27,7 @@ interface Props {
   initialQuestions: QuestionRow[];
   initialResponses: ResponseRow[];
   publicUrl: string;
+  logoUrl: string;
 }
 
 type Tab = 'preguntas' | 'respuestas';
@@ -36,6 +37,7 @@ export default function AdminPanel({
   initialQuestions,
   initialResponses,
   publicUrl,
+  logoUrl,
 }: Props) {
   const [tab, setTab] = useState<Tab>('preguntas');
 
@@ -57,7 +59,10 @@ export default function AdminPanel({
     <div className="space-y-4">
       <Toaster richColors position="top-right" />
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-gray-800">Panel de administración</h1>
+        <div className="flex items-center gap-3">
+          <img src={logoUrl} alt="CI-UNA" className="w-10 h-10 rounded-full" />
+          <h1 className="text-xl font-semibold text-gray-800">Panel de administración</h1>
+        </div>
         <div className="flex items-center gap-2">
           <a
             href={publicUrl}
