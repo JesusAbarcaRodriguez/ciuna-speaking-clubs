@@ -13,6 +13,10 @@ export const POST: APIRoute = async ({ request }) => {
     return jsonError('Respuestas inválidas.');
   }
 
+  if (body?.consent !== true) {
+    return jsonError('Debes aceptar el uso de tus datos para poder inscribirte.');
+  }
+
   const [meta] = await db.select().from(formMeta).where(eq(formMeta.id, 1));
   if (meta && !meta.acceptingResponses) {
     return jsonError('Este formulario ya no acepta respuestas.');
