@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { confirmToast } from '../../lib/confirmToast';
+import { useConfirmDialog } from '../../lib/useConfirmDialog';
+import ConfirmDialog from './ConfirmDialog';
 
 type QuestionType = 'short_text' | 'email' | 'select' | 'radio' | 'info';
 
@@ -61,6 +62,7 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
   const [description, setDescription] = useState(initialMeta.description);
   const [items, setItems] = useState<EditableQuestion[]>(() => initialQuestions.map(toEditable));
   const [saving, setSaving] = useState(false);
+  const { dialogProps, requestConfirm } = useConfirmDialog();
 
   function updateItem(key: string, patch: Partial<EditableQuestion>) {
     setItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
@@ -79,7 +81,7 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
 
   function removeItem(key: string) {
     const item = items.find((i) => i.key === key);
-    confirmToast(`¿Eliminar la pregunta "${item?.label || 'sin título'}"?`, () => {
+    requestConfirm(`¿Eliminar la pregunta "${item?.label || 'sin título'}"?`, () => {
       setItems((prev) => prev.filter((i) => i.key !== key));
       toast.success('Pregunta eliminada. Recuerda guardar los cambios.');
     });
@@ -138,6 +140,7 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
 
   return (
     <div className="space-y-4">
+      <ConfirmDialog {...dialogProps} />
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
         <div>
           <label className="block text-sm text-gray-700 mb-1">Título del formulario</label>

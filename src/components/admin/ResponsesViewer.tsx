@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { confirmToast } from '../../lib/confirmToast';
+import { useConfirmDialog } from '../../lib/useConfirmDialog';
+import ConfirmDialog from './ConfirmDialog';
 
 type QuestionType = 'short_text' | 'email' | 'select' | 'radio' | 'info';
 
@@ -44,6 +45,7 @@ export default function ResponsesViewer({
   const [subView, setSubView] = useState<SubView>('resumen');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [responseIndex, setResponseIndex] = useState(0);
+  const { dialogProps, requestConfirm } = useConfirmDialog();
 
   const answerableQuestions = useMemo(() => questions.filter((q) => q.type !== 'info'), [questions]);
 
@@ -90,7 +92,7 @@ export default function ResponsesViewer({
   }
 
   function handleDeleteAll() {
-    confirmToast(
+    requestConfirm(
       `¿Eliminar las ${responses.length} respuestas? Esta acción no se puede deshacer.`,
       async () => {
         setDeleting(true);
@@ -125,6 +127,7 @@ export default function ResponsesViewer({
 
   return (
     <div className="space-y-4">
+      <ConfirmDialog {...dialogProps} />
       <AcceptingBanner
         acceptingResponses={acceptingResponses}
         toggling={toggling}
