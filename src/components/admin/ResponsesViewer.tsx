@@ -23,17 +23,11 @@ interface Props {
 
 type SubView = 'resumen' | 'pregunta' | 'individual';
 
-function xmlEscape(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-function xmlCell(value: string) {
-  return `<Cell><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`;
+function csvCell(value: string) {
+  if (/[",\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
 }
 
 export default function ResponsesViewer({
@@ -64,36 +58,22 @@ export default function ResponsesViewer({
 
   function handleExportExcel() {
     const headers = ['Marca temporal', ...answerableQuestions.map((q) => q.label)];
-    const headerRow = `<Row>${headers.map(xmlCell).join('')}</Row>`;
-    const dataRows = responses
-      .map((r) => {
-        const cells = [
-          new Date(r.submittedAt).toLocaleString('es-CR'),
-          ...answerableQuestions.map((q) => r.answers[q.label] ?? ''),
-        ];
-        return `<Row>${cells.map(xmlCell).join('')}</Row>`;
-      })
-      .join('');
+    const rows = responses.map((r) => {
+      const cells = [
+        new Date(r.submittedAt).toLocaleString('es-CR'),
+        ...answerableQuestions.map((q) => r.answers[q.label] ?? ''),
+      ];
+      return cells.map(csvCell).join(',');
+    });
 
-    const xml = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Worksheet ss:Name="Respuestas">
-  <Table>
-   ${headerRow}
-   ${dataRows}
-  </Table>
- </Worksheet>
-</Workbook>`;
+    // BOM al inicio para que Excel detecte UTF-8 y muestre tildes/ñ correctamente.
+    const csv = '﻿' + [headers.map(csvCell).join(','), ...rows].join('\r\n');
 
-    const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'respuestas.xls';
+    a.download = 'respuestas.csv';
     document.body.appendChild(a);
     a.click();
     a.remove();
