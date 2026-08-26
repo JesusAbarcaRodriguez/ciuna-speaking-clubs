@@ -12,7 +12,8 @@
     "astro": "astro",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "load-test": "node scripts/load-test.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.4",

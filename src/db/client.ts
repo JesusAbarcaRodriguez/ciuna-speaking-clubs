@@ -9,7 +9,14 @@ if (!connectionString) {
 }
 
 // prepare: false porque Supabase's transaction pooler (puerto 6543) no soporta
-// prepared statements.
-const client = postgres(connectionString, { prepare: false });
+// prepared statements. idle_timeout cierra conexiones ociosas de nuestro lado
+// antes de que el pooler las cierre del suyo, evitando errores de
+// CONNECTION_CLOSED al reutilizar una conexión que el servidor ya mató.
+const client = postgres(connectionString, {
+  prepare: false,
+  idle_timeout: 20,
+  max_lifetime: 60 * 30,
+  connect_timeout: 10,
+});
 
 export const db = drizzle(client, { schema });
