@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Footer from '../components/Footer.astro';
 import { Image } from 'astro:assets';
 import logoBanner from '../images/logo.png';
 import levelsDiagram from '../images/levels.png';
@@ -177,6 +178,8 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
         <p class="text-gray-800 text-lg">Tu respuesta ha sido registrada.</p>
       </div>
     </div>
+
+    <Footer />
   </div>
 </Layout>
 
