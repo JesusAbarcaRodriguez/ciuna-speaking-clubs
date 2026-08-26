@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { confirmToast } from '../../lib/confirmToast';
 
 type QuestionType = 'short_text' | 'email' | 'select' | 'radio' | 'info';
 
@@ -53,7 +55,12 @@ export default function ResponsesViewer({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acceptingResponses: next }),
     });
-    if (res.ok) setAcceptingResponses(next);
+    if (res.ok) {
+      setAcceptingResponses(next);
+      toast.success(next ? 'El formulario ya acepta respuestas.' : 'El formulario dejó de aceptar respuestas.');
+    } else {
+      toast.error('No se pudo actualizar el estado del formulario.');
+    }
     setToggling(false);
   }
 
@@ -79,22 +86,26 @@ export default function ResponsesViewer({
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    toast.success('Archivo descargado.');
   }
 
-  async function handleDeleteAll() {
-    const confirmed = window.confirm(
+  function handleDeleteAll() {
+    confirmToast(
       `¿Eliminar las ${responses.length} respuestas? Esta acción no se puede deshacer.`,
+      async () => {
+        setDeleting(true);
+        const res = await fetch('/api/admin/responses', { method: 'DELETE' });
+        if (res.ok) {
+          setResponses([]);
+          setQuestionIndex(0);
+          setResponseIndex(0);
+          toast.success('Respuestas eliminadas.');
+        } else {
+          toast.error('No se pudieron eliminar las respuestas.');
+        }
+        setDeleting(false);
+      },
     );
-    if (!confirmed) return;
-
-    setDeleting(true);
-    const res = await fetch('/api/admin/responses', { method: 'DELETE' });
-    if (res.ok) {
-      setResponses([]);
-      setQuestionIndex(0);
-      setResponseIndex(0);
-    }
-    setDeleting(false);
   }
 
   if (responses.length === 0) {

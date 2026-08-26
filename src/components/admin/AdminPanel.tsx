@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Toaster, toast } from 'sonner';
 import AdminEditor from './AdminEditor';
 import ResponsesViewer from './ResponsesViewer';
 
@@ -37,16 +38,13 @@ export default function AdminPanel({
   publicUrl,
 }: Props) {
   const [tab, setTab] = useState<Tab>('preguntas');
-  const [copyLabel, setCopyLabel] = useState('Copiar enlace');
 
   async function handleCopyLink() {
     try {
       await navigator.clipboard.writeText(publicUrl);
-      setCopyLabel('¡Copiado!');
-      setTimeout(() => setCopyLabel('Copiar enlace'), 2000);
+      toast.success('Enlace copiado.');
     } catch {
-      setCopyLabel('No se pudo copiar');
-      setTimeout(() => setCopyLabel('Copiar enlace'), 2000);
+      toast.error('No se pudo copiar el enlace.');
     }
   }
 
@@ -57,6 +55,7 @@ export default function AdminPanel({
 
   return (
     <div className="space-y-4">
+      <Toaster richColors position="top-right" />
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-800">Panel de administración</h1>
         <div className="flex items-center gap-2">
@@ -73,7 +72,7 @@ export default function AdminPanel({
             onClick={handleCopyLink}
             className="text-sm border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50"
           >
-            {copyLabel}
+            Copiar enlace
           </button>
           <button
             type="button"

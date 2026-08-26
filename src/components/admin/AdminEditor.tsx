@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { confirmToast } from '../../lib/confirmToast';
 
 type QuestionType = 'short_text' | 'email' | 'select' | 'radio' | 'info';
 
@@ -58,8 +60,7 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
   const [title, setTitle] = useState(initialMeta.title);
   const [description, setDescription] = useState(initialMeta.description);
   const [items, setItems] = useState<EditableQuestion[]>(() => initialQuestions.map(toEditable));
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [saving, setSaving] = useState(false);
 
   function updateItem(key: string, patch: Partial<EditableQuestion>) {
     setItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
@@ -77,7 +78,11 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
   }
 
   function removeItem(key: string) {
-    setItems((prev) => prev.filter((item) => item.key !== key));
+    const item = items.find((i) => i.key === key);
+    confirmToast(`¿Eliminar la pregunta "${item?.label || 'sin título'}"?`, () => {
+      setItems((prev) => prev.filter((i) => i.key !== key));
+      toast.success('Pregunta eliminada. Recuerda guardar los cambios.');
+    });
   }
 
   function addItem() {
@@ -96,8 +101,7 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
   }
 
   async function handleSave() {
-    setStatus('saving');
-    setErrorMessage('');
+    setSaving(true);
 
     const payload = {
       meta: { title, description },
@@ -124,13 +128,12 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
     });
 
     if (res.ok) {
-      setStatus('saved');
-      setTimeout(() => setStatus('idle'), 2500);
+      toast.success('Cambios guardados.');
     } else {
       const data = await res.json().catch(() => ({}));
-      setErrorMessage(data.error || 'Error al guardar.');
-      setStatus('error');
+      toast.error(data.error || 'Error al guardar.');
     }
+    setSaving(false);
   }
 
   return (
@@ -282,19 +285,14 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
         + Agregar pregunta
       </button>
 
-      <div className="sticky bottom-4 flex items-center justify-between bg-white rounded-lg shadow-md border border-gray-200 p-4">
-        <div className="text-sm">
-          {status === 'saving' && <span className="text-gray-500">Guardando...</span>}
-          {status === 'saved' && <span className="text-green-600">Cambios guardados.</span>}
-          {status === 'error' && <span className="text-red-600">{errorMessage}</span>}
-        </div>
+      <div className="sticky bottom-4 flex items-center justify-end bg-white rounded-lg shadow-md border border-gray-200 p-4">
         <button
           type="button"
           onClick={handleSave}
-          disabled={status === 'saving'}
+          disabled={saving}
           className="bg-brand hover:bg-indigo-600 text-white font-medium rounded-md px-6 py-2 transition-colors disabled:opacity-50"
         >
-          Guardar cambios
+          {saving ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
     </div>
