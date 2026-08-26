@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { useConfirmDialog } from '../../lib/useConfirmDialog';
 import ConfirmDialog from './ConfirmDialog';
 
-type QuestionType = 'short_text' | 'email' | 'select' | 'radio' | 'info';
+type QuestionType = 'short_text' | 'text_only' | 'numeric' | 'email' | 'select' | 'radio' | 'info';
 
 interface QuestionRow {
   id?: number;
@@ -33,6 +33,8 @@ interface Props {
 
 const TYPE_LABELS: Record<QuestionType, string> = {
   short_text: 'Texto corto',
+  text_only: 'Solo texto (sin números)',
+  numeric: 'Solo números',
   email: 'Correo electrónico',
   select: 'Lista desplegable',
   radio: 'Opción múltiple',
@@ -224,7 +226,10 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
             </div>
           </div>
 
-          {(item.type === 'short_text' || item.type === 'email') && (
+          {(item.type === 'short_text' ||
+            item.type === 'text_only' ||
+            item.type === 'numeric' ||
+            item.type === 'email') && (
             <div>
               <label className="block text-sm text-gray-700 mb-1">Texto de ayuda (placeholder)</label>
               <input

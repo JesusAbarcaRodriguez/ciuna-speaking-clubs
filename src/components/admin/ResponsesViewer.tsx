@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { useConfirmDialog } from '../../lib/useConfirmDialog';
 import ConfirmDialog from './ConfirmDialog';
 
-type QuestionType = 'short_text' | 'email' | 'select' | 'radio' | 'info';
+type QuestionType = 'short_text' | 'text_only' | 'numeric' | 'email' | 'select' | 'radio' | 'info';
 
 interface QuestionRow {
   id?: number;

@@ -7,7 +7,15 @@ export const formMeta = pgTable('form_meta', {
   acceptingResponses: boolean('accepting_responses').notNull().default(true),
 });
 
-export const questionTypes = ['short_text', 'email', 'select', 'radio', 'info'] as const;
+export const questionTypes = [
+  'short_text',
+  'text_only',
+  'numeric',
+  'email',
+  'select',
+  'radio',
+  'info',
+] as const;
 export type QuestionType = (typeof questionTypes)[number];
 
 export const questions = pgTable('questions', {

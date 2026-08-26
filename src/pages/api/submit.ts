@@ -5,6 +5,9 @@ import { formMeta, questions, responses } from '../../db/schema';
 
 export const prerender = false;
 
+const TEXT_ONLY_PATTERN = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü' -]+$/;
+const NUMERIC_PATTERN = /^[0-9]+$/;
+
 export const POST: APIRoute = async ({ request }) => {
   const body = await request.json().catch(() => null);
   const answers = body?.answers;
@@ -41,6 +44,14 @@ export const POST: APIRoute = async ({ request }) => {
 
     if (value && (q.type === 'select' || q.type === 'radio') && q.options && !q.options.includes(value)) {
       return jsonError(`La opción enviada para "${q.label}" no es válida.`);
+    }
+
+    if (value && q.type === 'text_only' && !TEXT_ONLY_PATTERN.test(value)) {
+      return jsonError(`La pregunta "${q.label}" solo admite letras.`);
+    }
+
+    if (value && q.type === 'numeric' && !NUMERIC_PATTERN.test(value)) {
+      return jsonError(`La pregunta "${q.label}" solo admite números.`);
     }
   }
 
