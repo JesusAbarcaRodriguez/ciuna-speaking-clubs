@@ -5,12 +5,28 @@ import logoBanner from '../images/logo.png';
 import levelsDiagram from '../images/levels.png';
 import { db } from '../db/client';
 import { formMeta, questions } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 export const prerender = false;
 
+// Debe coincidir con la capacidad definida en sql/001_club_capacity_trigger.sql
+const CLUB_CAPACITY = 17;
+
 const [meta] = await db.select().from(formMeta).where(eq(formMeta.id, 1));
 const questionRows = await db.select().from(questions).orderBy(questions.order);
+
+const radioQuestion = questionRows.find((q) => q.type === 'radio');
+const clubCounts: Record<string, number> = {};
+if (radioQuestion) {
+  const counts = await db.execute<{ club: string; n: number }>(sql`
+    SELECT answers ->> ${radioQuestion.label} AS club, count(*)::int AS n
+    FROM responses
+    GROUP BY club
+  `);
+  for (const row of counts) {
+    if (row.club) clubCounts[row.club] = Number(row.n);
+  }
+}
 
 const images: Record<string, ImageMetadata> = {
   levels: levelsDiagram,
@@ -86,25 +102,34 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
         }
 
         if (q.type === 'radio') {
+          const availableOptions = (q.options || []).filter(
+            (opt) => (clubCounts[opt] || 0) < CLUB_CAPACITY,
+          );
           return (
             <div role="group" aria-label={q.label} class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
               <p class="font-bold text-gray-800 mb-4">
                 {q.label} {q.required && <span class="text-red-600">*</span>}
               </p>
-              <div class="space-y-4">
-                {(q.options || []).map((opt) => (
-                  <label class="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name={q.label}
-                      value={opt}
-                      required={q.required}
-                      class="w-5 h-5 accent-brand"
-                    />
-                    <span class="text-gray-800">{opt}</span>
-                  </label>
-                ))}
-              </div>
+              {availableOptions.length === 0 ? (
+                <p class="text-gray-500 text-sm">
+                  Todos los horarios alcanzaron el cupo máximo por el momento.
+                </p>
+              ) : (
+                <div class="space-y-4">
+                  {availableOptions.map((opt) => (
+                    <label class="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={q.label}
+                        value={opt}
+                        required={q.required}
+                        class="w-5 h-5 accent-brand"
+                      />
+                      <span class="text-gray-800">{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           );
         }

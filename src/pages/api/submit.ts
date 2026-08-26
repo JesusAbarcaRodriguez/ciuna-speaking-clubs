@@ -28,18 +28,45 @@ export const POST: APIRoute = async ({ request }) => {
 
   for (const q of questionRows) {
     if (q.type === 'info') continue;
-    if (q.required && !String(answers[q.label] ?? '').trim()) {
+
+    const value = String(answers[q.label] ?? '').trim();
+
+    if (q.required && !value) {
       return jsonError(`La pregunta "${q.label}" es obligatoria.`);
+    }
+
+    if (value && (q.type === 'select' || q.type === 'radio') && q.options && !q.options.includes(value)) {
+      return jsonError(`La opción enviada para "${q.label}" no es válida.`);
     }
   }
 
-  await db.insert(responses).values({ answers });
+  try {
+    await db.insert(responses).values({ answers });
+  } catch (err) {
+    if (isClubFullError(err)) {
+      return jsonError('Ese club ya alcanzó el cupo máximo. Por favor elige otro.');
+    }
+    throw err;
+  }
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
 };
+
+function isClubFullError(err: unknown): boolean {
+  let current: unknown = err;
+  for (let i = 0; i < 5 && current; i++) {
+    if (current instanceof Error) {
+      if (current.message.includes('CLUB_FULL')) return true;
+      current = current.cause;
+    } else {
+      break;
+    }
+  }
+  return false;
+}
 
 function jsonError(message: string) {
   return new Response(JSON.stringify({ error: message }), {
