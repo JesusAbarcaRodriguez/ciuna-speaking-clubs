@@ -68,7 +68,7 @@ async function submitOne(questions, index) {
     const res = await fetch(`${TARGET_URL}/api/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify({ answers, consent: true }),
     });
     const ms = Date.now() - start;
     if (res.ok) return { ok: true, ms };
