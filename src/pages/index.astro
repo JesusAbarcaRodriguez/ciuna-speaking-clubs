@@ -2,8 +2,9 @@
 import Layout from '../layouts/Layout.astro';
 import Footer from '../components/Footer.astro';
 import PublicToaster from '../components/PublicToaster';
-import { Image } from 'astro:assets';
+import { Image, getImage } from 'astro:assets';
 import logoBanner from '../images/logo.png';
+import logoCiuna from '../images/logo-ciuna.png';
 import levelsDiagram from '../images/levels.png';
 import { db } from '../db/client';
 import { formMeta, questions } from '../db/schema';
@@ -33,6 +34,11 @@ if (radioQuestion) {
 const images: Record<string, ImageMetadata> = {
   levels: levelsDiagram,
 };
+
+const ciunaLogo = await getImage({ src: logoCiuna, width: 96, height: 96, format: 'png' });
+const answerableQuestionsMeta = questionRows
+  .filter((q) => q.type !== 'info' && q.label !== 'Confirme su correo electrónico')
+  .map((q) => ({ label: q.label }));
 
 function renderDescription(text: string) {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 === 1 ? { bold: part } : part));
@@ -203,10 +209,24 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
     </form>
 
     <div id="registration-success" class="hidden max-w-[700px] mx-auto">
-      <div class="bg-white rounded-lg shadow-sm border-t-8 border-brand p-8 text-center">
+      <div class="bg-white rounded-lg shadow-sm border-t-8 border-brand p-8 text-center space-y-4">
         <p class="text-gray-800 text-lg">Tu respuesta ha sido registrada.</p>
+        <button
+          id="download-pdf-button"
+          type="button"
+          class="bg-brand hover:bg-indigo-600 text-white font-medium rounded-md px-6 py-2 transition-colors"
+        >
+          Descargar comprobante (PDF)
+        </button>
       </div>
     </div>
+
+    <script
+      is:inline
+      type="application/json"
+      id="pdf-context"
+      set:html={JSON.stringify({ logoUrl: ciunaLogo.src, questions: answerableQuestionsMeta })}
+    />
 
     <Footer />
   </div>
@@ -214,10 +234,111 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
 
 <script>
   import { toast } from 'sonner';
+  import { jsPDF } from 'jspdf';
 
   const form = document.getElementById('registration-form') as HTMLFormElement;
   const errorNote = document.getElementById('form-error') as HTMLParagraphElement;
   const successBox = document.getElementById('registration-success') as HTMLDivElement;
+  const downloadPdfButton = document.getElementById('download-pdf-button') as HTMLButtonElement | null;
+
+  const pdfContext: { logoUrl: string; questions: { label: string }[] } = JSON.parse(
+    document.getElementById('pdf-context')?.textContent || '{"logoUrl":"","questions":[]}',
+  );
+
+  let lastAnswers: Record<string, string> | null = null;
+
+  async function fetchAsDataUrl(url: string): Promise<string> {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function downloadReceiptPdf(answers: Record<string, string>) {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 48;
+    let y = 64;
+
+    try {
+      const logoDataUrl = await fetchAsDataUrl(pdfContext.logoUrl);
+      doc.addImage(logoDataUrl, 'PNG', margin, y - 32, 48, 48);
+    } catch {
+      // Si el logo no carga, seguimos sin él en vez de bloquear la descarga.
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor('#6c5ce7');
+    doc.text('Comprobante de inscripción', margin + 60, y - 8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor('#666666');
+    doc.text('Speaking Clubs — CI-UNA', margin + 60, y + 10);
+
+    y += 40;
+    doc.setDrawColor('#6c5ce7');
+    doc.setLineWidth(1.5);
+    doc.line(margin, y, pageWidth - margin, y);
+
+    y += 26;
+    doc.setFontSize(9);
+    doc.setTextColor('#999999');
+    doc.text(`Enviado el ${new Date().toLocaleString('es-CR')}`, margin, y);
+
+    y += 30;
+    for (const q of pdfContext.questions) {
+      const value = answers[q.label]?.trim() || '—';
+
+      if (y > 760) {
+        doc.addPage();
+        y = 64;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor('#555555');
+      doc.text(q.label.toUpperCase(), margin, y);
+
+      y += 17;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor('#1a1a1a');
+      const lines = doc.splitTextToSize(value, pageWidth - margin * 2);
+      doc.text(lines, margin, y);
+      y += lines.length * 15 + 14;
+    }
+
+    y += 10;
+    doc.setDrawColor('#e5e5e5');
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+
+    y += 20;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor('#999999');
+    doc.text(
+      'Este comprobante es un respaldo personal de tu inscripción. Ante cualquier duda, contacta a CI-UNA Speaking Clubs.',
+      margin,
+      y,
+      { maxWidth: pageWidth - margin * 2 },
+    );
+
+    doc.save(`comprobante-speaking-club-${Date.now()}.pdf`);
+  }
+
+  downloadPdfButton?.addEventListener('click', () => {
+    if (!lastAnswers) return;
+    downloadReceiptPdf(lastAnswers).catch(() => {
+      toast.error('No se pudo generar el PDF. Intenta de nuevo.');
+    });
+  });
 
   // Filtra en vivo lo que se puede escribir en campos de solo texto / solo números.
   const FILTER_PATTERNS: Record<string, RegExp> = {
@@ -278,6 +399,7 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
         return;
       }
 
+      lastAnswers = answers;
       form.classList.add('hidden');
       successBox.classList.remove('hidden');
     } catch {
