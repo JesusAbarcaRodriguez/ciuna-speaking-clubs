@@ -44,7 +44,7 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
 <Layout titulo="Speaking Clubs Registration - CI-UNA">
   <div class="min-h-screen bg-[#f0ead6] py-8 px-4">
     <PublicToaster client:load />
-    <form id="registration-form" class="max-w-[700px] mx-auto space-y-4">
+    <form id="registration-form" autocomplete="off" class="max-w-[700px] mx-auto space-y-4">
       <!-- Banner -->
       <div class="rounded-lg overflow-hidden">
         <Image src={logoBanner} alt="Speaking Clubs Registration - Centro de Idiomas - Universidad Nacional" class="w-full h-auto" />
@@ -224,6 +224,12 @@ const descriptionParts = meta ? renderDescription(meta.description) : [];
     text: /[^A-Za-zÁÉÍÓÚáéíóúÑñÜü' -]/g,
     numeric: /[^0-9]/g,
   };
+
+  // Al recargar o volver con el botón atrás (incluido el bfcache), limpia lo que
+  // el navegador haya rellenado para que el formulario empiece siempre vacío.
+  window.addEventListener('pageshow', () => {
+    form?.reset();
+  });
 
   form?.querySelectorAll<HTMLInputElement>('input[data-filter]').forEach((input) => {
     const pattern = FILTER_PATTERNS[input.dataset.filter || ''];
