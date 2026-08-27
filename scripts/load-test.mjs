@@ -3,18 +3,24 @@
 // de datos, para no depender de un snapshot que quede desactualizado).
 //
 // Uso:
-//   node scripts/load-test.mjs [total] [concurrencia] [url]
+//   node scripts/load-test.mjs [total] [concurrencia] [url] [--keep]
 //   node scripts/load-test.mjs 900 40 http://localhost:4321
+//   node scripts/load-test.mjs 900 40 --keep   (deja las respuestas para ver el Excel)
 //
-// Al final borra únicamente las respuestas que él mismo creó (marcadas con
-// el correo "loadtest-*"), nunca toca datos reales.
+// Por defecto, al final borra únicamente las respuestas que él mismo creó
+// (marcadas con el correo "loadtest-*") y nunca toca datos reales.
+// Con --keep NO borra nada: quedan en la base para revisar el export.
 
 import 'dotenv/config';
 import postgres from 'postgres';
 
-const TOTAL = Number(process.argv[2] || 300);
-const CONCURRENCY = Number(process.argv[3] || 20);
-const TARGET_URL = process.argv[4] || 'http://localhost:4321';
+const rawArgs = process.argv.slice(2);
+const KEEP = rawArgs.includes('--keep');
+const positional = rawArgs.filter((a) => !a.startsWith('--'));
+
+const TOTAL = Number(positional[0] || 300);
+const CONCURRENCY = Number(positional[1] || 20);
+const TARGET_URL = positional[2] || 'http://localhost:4321';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -133,10 +139,20 @@ async function main() {
     console.log(`\nClubs que superaron el cupo de 17: ${overCapacity.length} (debe ser 0)`);
   }
 
-  const deleted = await sql`
-    DELETE FROM responses WHERE answers ->> 'Correo electrónico' LIKE 'loadtest-%'
-  `;
-  console.log(`\nLimpieza: ${deleted.count} respuestas de prueba eliminadas.`);
+  if (KEEP) {
+    console.log(
+      `\n--keep activo: se conservan las respuestas de prueba (correo loadtest-*).`,
+    );
+    console.log('Para borrarlas más tarde, corré en la base:');
+    console.log(
+      `  DELETE FROM responses WHERE answers ->> 'Correo electrónico' LIKE 'loadtest-%';`,
+    );
+  } else {
+    const deleted = await sql`
+      DELETE FROM responses WHERE answers ->> 'Correo electrónico' LIKE 'loadtest-%'
+    `;
+    console.log(`\nLimpieza: ${deleted.count} respuestas de prueba eliminadas.`);
+  }
 }
 
 main()
