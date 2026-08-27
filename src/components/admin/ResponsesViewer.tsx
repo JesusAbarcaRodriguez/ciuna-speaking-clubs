@@ -26,13 +26,6 @@ interface Props {
 
 type SubView = 'resumen' | 'pregunta' | 'individual';
 
-function csvCell(value: string) {
-  if (/[",\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
-
 export default function ResponsesViewer({
   questions,
   initialResponses,
@@ -67,27 +60,11 @@ export default function ResponsesViewer({
   }
 
   function handleExportExcel() {
-    const headers = ['Marca temporal', ...answerableQuestions.map((q) => q.label)];
-    const rows = responses.map((r) => {
-      const cells = [
-        new Date(r.submittedAt).toLocaleString('es-CR'),
-        ...answerableQuestions.map((q) => r.answers[q.label] ?? ''),
-      ];
-      return cells.map(csvCell).join(',');
-    });
-
-    // BOM al inicio para que Excel detecte UTF-8 y muestre tildes/ñ correctamente.
-    const csv = '﻿' + [headers.map(csvCell).join(','), ...rows].join('\r\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'respuestas.csv';
+    a.href = '/api/admin/export';
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
     toast.success('Archivo descargado.');
   }
 
