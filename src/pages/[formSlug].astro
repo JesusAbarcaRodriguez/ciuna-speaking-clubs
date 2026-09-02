@@ -1,0 +1,436 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Footer from '../components/Footer.astro';
+import PublicToaster from '../components/PublicToaster';
+import { Image, getImage } from 'astro:assets';
+import logoBanner from '../images/logo.png';
+import logoCiuna from '../images/logo-ciuna.png';
+import levelsDiagram from '../images/levels.png';
+import { db } from '../db/client';
+import { forms, questions } from '../db/schema';
+import { eq, sql } from 'drizzle-orm';
+
+export const prerender = false;
+
+const { formSlug } = Astro.params;
+
+const [form] = await db.select().from(forms).where(eq(forms.slug, formSlug!));
+
+if (!form) {
+  return new Response(null, { status: 404 });
+}
+
+// Debe coincidir con la capacidad definida en sql/006_scope_triggers_to_form.sql
+const CLUB_CAPACITY = 17;
+
+const questionRows = await db
+  .select()
+  .from(questions)
+  .where(eq(questions.formId, form.id))
+  .orderBy(questions.order);
+
+const radioQuestion = questionRows.find((q) => q.type === 'radio');
+const clubCounts: Record<string, number> = {};
+if (radioQuestion) {
+  const counts = await db.execute<{ club: string; n: number }>(sql`
+    SELECT answers ->> ${radioQuestion.label} AS club, count(*)::int AS n
+    FROM responses
+    WHERE form_id = ${form.id}
+    GROUP BY club
+  `);
+  for (const row of counts) {
+    if (row.club) clubCounts[row.club] = Number(row.n);
+  }
+}
+
+const images: Record<string, ImageMetadata> = {
+  levels: levelsDiagram,
+};
+
+const ciunaLogo = await getImage({ src: logoCiuna, width: 96, height: 96, format: 'png' });
+const answerableQuestionsMeta = questionRows
+  .filter((q) => q.type !== 'info' && q.label !== 'Confirme su correo electrónico')
+  .map((q) => ({ label: q.label }));
+
+function renderDescription(text: string) {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 === 1 ? { bold: part } : part));
+}
+
+const descriptionParts = renderDescription(form.description);
+---
+
+<Layout titulo={`${form.title} - CI-UNA`}>
+  <div class="min-h-screen bg-[#f0ead6] py-8 px-4">
+    <PublicToaster client:load />
+    <form id="registration-form" autocomplete="off" class="max-w-[700px] mx-auto space-y-4">
+      <!-- Banner -->
+      <div class="rounded-lg overflow-hidden">
+        <Image src={logoBanner} alt="Centro de Idiomas - Universidad Nacional" class="w-full h-auto" />
+      </div>
+
+      <!-- Title card -->
+      <div class="bg-white rounded-lg shadow-sm border-t-8 border-brand overflow-hidden">
+        <div class="p-6 sm:p-8">
+          <h1 class="text-3xl text-gray-800 mb-4">{form.title}</h1>
+          <p class="text-sm text-gray-700 leading-relaxed">
+            {descriptionParts.map((part) =>
+              typeof part === 'string' ? part : <strong>{part.bold}</strong>
+            )}
+          </p>
+        </div>
+        {!form.acceptingResponses ? (
+          <div class="border-t border-gray-200 px-6 sm:px-8 py-4 bg-amber-50">
+            <p class="text-gray-700 text-sm">Este formulario ya no acepta respuestas.</p>
+          </div>
+        ) : (
+          <div class="border-t border-gray-200 px-6 sm:px-8 py-3">
+            <p class="text-red-600 text-sm">* Indica que la pregunta es obligatoria</p>
+          </div>
+        )}
+      </div>
+
+      {form.acceptingResponses && questionRows.map((q) => {
+        const fieldId = `q-${q.id}`;
+        if (q.type === 'info') {
+          const image = q.imageKey ? images[q.imageKey] : undefined;
+          return (
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
+              <h2 class="font-bold text-gray-800 mb-4">{q.label}</h2>
+              {image && (
+                <Image src={image} alt={q.label} class="block w-full h-auto max-w-lg mx-auto" />
+              )}
+            </div>
+          );
+        }
+
+        if (q.type === 'select') {
+          return (
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
+              <label class="block text-gray-800 mb-4" for={fieldId}>
+                {q.label} {q.required && <span class="text-red-600">*</span>}
+              </label>
+              <select
+                id={fieldId}
+                name={q.label}
+                required={q.required}
+                class="w-full border border-gray-300 rounded px-3 py-2 text-gray-700 bg-white outline-none focus:border-brand"
+              >
+                <option value="" selected disabled>Elegir</option>
+                {(q.options || []).map((opt) => <option value={opt}>{opt}</option>)}
+              </select>
+            </div>
+          );
+        }
+
+        if (q.type === 'radio') {
+          const availableOptions = (q.options || []).filter(
+            (opt) => (clubCounts[opt] || 0) < CLUB_CAPACITY,
+          );
+          return (
+            <div role="group" aria-label={q.label} class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
+              <p class="font-bold text-gray-800 mb-4">
+                {q.label} {q.required && <span class="text-red-600">*</span>}
+              </p>
+              {availableOptions.length === 0 ? (
+                <p class="text-gray-500 text-sm">
+                  Todos los horarios alcanzaron el cupo máximo por el momento.
+                </p>
+              ) : (
+                <div class="space-y-4">
+                  {availableOptions.map((opt) => (
+                    <label class="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={q.label}
+                        value={opt}
+                        required={q.required}
+                        class="w-5 h-5 accent-brand"
+                      />
+                      <span class="text-gray-800">{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        const filter = q.type === 'text_only' ? 'text' : q.type === 'numeric' ? 'numeric' : undefined;
+        const pattern =
+          q.type === 'text_only'
+            ? "[A-Za-zÁÉÍÓÚáéíóúÑñÜü' -]+"
+            : q.type === 'numeric'
+              ? '[0-9]+'
+              : undefined;
+        const validationMessage =
+          q.type === 'text_only'
+            ? 'Solo se permiten letras.'
+            : q.type === 'numeric'
+              ? 'Solo se permiten números.'
+              : undefined;
+
+        return (
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
+            <label class="block text-gray-800 mb-4" for={fieldId}>
+              {q.label} {q.required && <span class="text-red-600">*</span>}
+            </label>
+            <input
+              id={fieldId}
+              name={q.label}
+              type={q.type === 'email' ? 'email' : 'text'}
+              inputmode={q.type === 'numeric' ? 'numeric' : undefined}
+              pattern={pattern}
+              title={validationMessage}
+              data-filter={filter}
+              required={q.required}
+              placeholder={q.placeholder || 'Tu respuesta'}
+              class="w-full border-b border-gray-300 focus:border-brand outline-none py-2 text-gray-700 bg-transparent"
+            />
+          </div>
+        );
+      })}
+
+      {form.acceptingResponses && (
+        <>
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input
+                id="consent-checkbox"
+                type="checkbox"
+                class="mt-1 w-5 h-5 accent-brand shrink-0"
+              />
+              <span class="text-gray-800 text-sm">
+                Entiendo que al enviar este formulario mis datos serán usados única y
+                exclusivamente para el registro a {form.name}, según la <a href="/politica-privacidad" target="_blank" class="text-brand hover:underline">política de privacidad</a>. <span class="text-red-600">*</span>
+              </span>
+            </label>
+          </div>
+
+          <p id="form-error" class="hidden text-red-600 text-sm px-2"></p>
+
+          <div class="flex items-center justify-between px-2">
+            <button
+              type="submit"
+              class="bg-brand hover:bg-indigo-600 text-white font-medium rounded-md px-6 py-2 transition-colors"
+            >
+              Enviar
+            </button>
+          </div>
+        </>
+      )}
+    </form>
+
+    <div id="registration-success" class="hidden max-w-[700px] mx-auto">
+      <div class="bg-white rounded-lg shadow-sm border-t-8 border-brand p-8 text-center space-y-4">
+        <p class="text-gray-800 text-lg">Tu respuesta ha sido registrada.</p>
+        <button
+          id="download-pdf-button"
+          type="button"
+          class="bg-brand hover:bg-indigo-600 text-white font-medium rounded-md px-6 py-2 transition-colors"
+        >
+          Descargar comprobante (PDF)
+        </button>
+      </div>
+    </div>
+
+    <script
+      is:inline
+      type="application/json"
+      id="pdf-context"
+      set:html={JSON.stringify({
+        logoUrl: ciunaLogo.src,
+        questions: answerableQuestionsMeta,
+        formName: form.name,
+        submitUrl: `/api/submit/${form.slug}`,
+      })}
+    />
+
+    <Footer />
+  </div>
+</Layout>
+
+<script>
+  import { toast } from 'sonner';
+  import { jsPDF } from 'jspdf';
+
+  const form = document.getElementById('registration-form') as HTMLFormElement;
+  const errorNote = document.getElementById('form-error') as HTMLParagraphElement;
+  const successBox = document.getElementById('registration-success') as HTMLDivElement;
+  const downloadPdfButton = document.getElementById('download-pdf-button') as HTMLButtonElement | null;
+
+  const pdfContext: {
+    logoUrl: string;
+    questions: { label: string }[];
+    formName: string;
+    submitUrl: string;
+  } = JSON.parse(
+    document.getElementById('pdf-context')?.textContent ||
+      '{"logoUrl":"","questions":[],"formName":"","submitUrl":"/api/submit"}',
+  );
+
+  let lastAnswers: Record<string, string> | null = null;
+
+  async function fetchAsDataUrl(url: string): Promise<string> {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function downloadReceiptPdf(answers: Record<string, string>) {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 48;
+    let y = 64;
+
+    try {
+      const logoDataUrl = await fetchAsDataUrl(pdfContext.logoUrl);
+      doc.addImage(logoDataUrl, 'PNG', margin, y - 32, 48, 48);
+    } catch {
+      // Si el logo no carga, seguimos sin él en vez de bloquear la descarga.
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor('#6c5ce7');
+    doc.text('Comprobante de inscripción', margin + 60, y - 8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor('#666666');
+    doc.text(`${pdfContext.formName} — CI-UNA`, margin + 60, y + 10);
+
+    y += 40;
+    doc.setDrawColor('#6c5ce7');
+    doc.setLineWidth(1.5);
+    doc.line(margin, y, pageWidth - margin, y);
+
+    y += 26;
+    doc.setFontSize(9);
+    doc.setTextColor('#999999');
+    doc.text(`Enviado el ${new Date().toLocaleString('es-CR')}`, margin, y);
+
+    y += 30;
+    for (const q of pdfContext.questions) {
+      const value = answers[q.label]?.trim() || '—';
+
+      if (y > 760) {
+        doc.addPage();
+        y = 64;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor('#555555');
+      doc.text(q.label.toUpperCase(), margin, y);
+
+      y += 17;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor('#1a1a1a');
+      const lines = doc.splitTextToSize(value, pageWidth - margin * 2);
+      doc.text(lines, margin, y);
+      y += lines.length * 15 + 14;
+    }
+
+    y += 10;
+    doc.setDrawColor('#e5e5e5');
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+
+    y += 20;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor('#999999');
+    doc.text(
+      `Este comprobante es un respaldo personal de tu inscripción. Ante cualquier duda, contacta a CI-UNA ${pdfContext.formName}.`,
+      margin,
+      y,
+      { maxWidth: pageWidth - margin * 2 },
+    );
+
+    doc.save(`comprobante-${Date.now()}.pdf`);
+  }
+
+  downloadPdfButton?.addEventListener('click', () => {
+    if (!lastAnswers) return;
+    downloadReceiptPdf(lastAnswers).catch(() => {
+      toast.error('No se pudo generar el PDF. Intenta de nuevo.');
+    });
+  });
+
+  // Filtra en vivo lo que se puede escribir en campos de solo texto / solo números.
+  const FILTER_PATTERNS: Record<string, RegExp> = {
+    text: /[^A-Za-zÁÉÍÓÚáéíóúÑñÜü' -]/g,
+    numeric: /[^0-9]/g,
+  };
+
+  // Al recargar o volver con el botón atrás (incluido el bfcache), limpia lo que
+  // el navegador haya rellenado para que el formulario empiece siempre vacío.
+  window.addEventListener('pageshow', () => {
+    form?.reset();
+  });
+
+  form?.querySelectorAll<HTMLInputElement>('input[data-filter]').forEach((input) => {
+    const pattern = FILTER_PATTERNS[input.dataset.filter || ''];
+    if (!pattern) return;
+    input.addEventListener('input', () => {
+      const cleaned = input.value.replace(pattern, '');
+      if (cleaned !== input.value) input.value = cleaned;
+    });
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    errorNote?.classList.add('hidden');
+
+    const consentCheckbox = document.getElementById('consent-checkbox') as HTMLInputElement | null;
+    const consent = consentCheckbox?.checked ?? false;
+
+    if (!consent) {
+      toast.error('Debes marcar la casilla para poder continuar.');
+      return;
+    }
+
+    const formData = new FormData(form);
+    const answers: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      answers[key] = String(value);
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    submitButton.disabled = true;
+
+    try {
+      const res = await fetch(pdfContext.submitUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers, consent }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (errorNote) {
+          errorNote.textContent = data.error || 'Ocurrió un error al enviar el formulario.';
+          errorNote.classList.remove('hidden');
+        }
+        submitButton.disabled = false;
+        return;
+      }
+
+      lastAnswers = answers;
+      form.classList.add('hidden');
+      successBox.classList.remove('hidden');
+    } catch {
+      if (errorNote) {
+        errorNote.textContent = 'No se pudo conectar con el servidor. Intenta de nuevo.';
+        errorNote.classList.remove('hidden');
+      }
+      submitButton.disabled = false;
+    }
+  });
+</script>

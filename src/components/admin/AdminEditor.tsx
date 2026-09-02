@@ -27,6 +27,7 @@ interface EditableQuestion {
 }
 
 interface Props {
+  formSlug: string;
   initialMeta: { title: string; description: string };
   initialQuestions: QuestionRow[];
 }
@@ -59,7 +60,7 @@ function toEditable(q: QuestionRow): EditableQuestion {
   };
 }
 
-export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
+export default function AdminEditor({ formSlug, initialMeta, initialQuestions }: Props) {
   const [title, setTitle] = useState(initialMeta.title);
   const [description, setDescription] = useState(initialMeta.description);
   const [items, setItems] = useState<EditableQuestion[]>(() => initialQuestions.map(toEditable));
@@ -125,7 +126,7 @@ export default function AdminEditor({ initialMeta, initialQuestions }: Props) {
       })),
     };
 
-    const res = await fetch('/api/admin/form', {
+    const res = await fetch(`/api/admin/${formSlug}/form`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

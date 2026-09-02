@@ -23,6 +23,8 @@ interface ResponseRow {
 }
 
 interface Props {
+  formSlug: string;
+  formName: string;
   initialMeta: { title: string; description: string; acceptingResponses: boolean };
   initialQuestions: QuestionRow[];
   initialResponses: ResponseRow[];
@@ -33,6 +35,8 @@ interface Props {
 type Tab = 'preguntas' | 'respuestas';
 
 export default function AdminPanel({
+  formSlug,
+  formName,
   initialMeta,
   initialQuestions,
   initialResponses,
@@ -61,7 +65,12 @@ export default function AdminPanel({
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <img src={logoUrl} alt="CI-UNA" className="w-10 h-10 rounded-full" />
-          <h1 className="text-xl font-semibold text-gray-800">Panel de administración</h1>
+          <div>
+            <a href="/admin" className="text-xs text-gray-400 hover:text-brand">
+              ← Todos los formularios
+            </a>
+            <h1 className="text-xl font-semibold text-gray-800">{formName}</h1>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <a
@@ -111,10 +120,11 @@ export default function AdminPanel({
       </div>
 
       {tab === 'preguntas' && (
-        <AdminEditor initialMeta={initialMeta} initialQuestions={initialQuestions} />
+        <AdminEditor formSlug={formSlug} initialMeta={initialMeta} initialQuestions={initialQuestions} />
       )}
       {tab === 'respuestas' && (
         <ResponsesViewer
+          formSlug={formSlug}
           questions={initialQuestions}
           initialResponses={initialResponses}
           initialAcceptingResponses={initialMeta.acceptingResponses}

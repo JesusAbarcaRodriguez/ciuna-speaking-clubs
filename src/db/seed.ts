@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { eq } from 'drizzle-orm';
 import * as schema from './schema';
-import { formMeta, questions } from './schema';
+import { forms, questions } from './schema';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -88,75 +89,81 @@ const nivelOptions = [
 
 async function seed() {
   await db
-    .insert(formMeta)
+    .insert(forms)
     .values({
-      id: 1,
+      slug: 'speaking-clubs',
+      name: 'Speaking Clubs',
       title: 'Speaking Clubs Registration (NUEVO LINK)',
       description:
         'El horario de inscripción es solamente jueves y viernes de 3pm a 6pm, después de realizar la inscripción, la siguiente semana se le estará enviando el link del SPEAKING CLUB vía CORREO. Por favor, estar atento a su correo, ya que será el único medio oficial para enviar las invitaciones a los speaking clubs, adicional verificar cuando escribe el correo electrónico para que no posea errores. Puedes matricular cualquier speaking club, ya sea presencial o virtual, independientemente de la modalidad en que lleve el curso, **sin embargo, se le validará SOLAMENTE 1 SPEAKING CLUB POR SEMANA.**',
+      weeklyReset: true,
     })
     .onConflictDoNothing();
 
-  await db.delete(questions);
+  const [form] = await db.select().from(forms).where(eq(forms.slug, 'speaking-clubs'));
 
-  await db.insert(questions).values([
+  await db.delete(questions).where(eq(questions.formId, form.id));
+
+  const questionRows = [
     {
       order: 1,
-      type: 'email',
+      type: 'email' as const,
       label: 'Correo electrónico',
       placeholder: 'Tu dirección de correo electrónico',
       required: true,
     },
     {
       order: 2,
-      type: 'email',
+      type: 'email' as const,
       label: 'Confirme su correo electrónico',
       placeholder: 'Tu respuesta',
       required: true,
     },
     {
       order: 3,
-      type: 'numeric',
+      type: 'numeric' as const,
       label: 'Cédula',
       placeholder: 'Tu respuesta',
       required: true,
     },
     {
       order: 4,
-      type: 'text_only',
+      type: 'text_only' as const,
       label: 'Nombre',
       placeholder: 'Tu respuesta',
       required: true,
     },
     {
       order: 5,
-      type: 'text_only',
+      type: 'text_only' as const,
       label: 'Apellidos',
       placeholder: 'Tu respuesta',
       required: true,
     },
     {
       order: 6,
-      type: 'info',
+      type: 'info' as const,
       label: 'NIVEL DE SPEAKING CLUB',
       required: false,
       imageKey: 'levels',
     },
     {
       order: 7,
-      type: 'select',
+      type: 'select' as const,
       label: 'Nivel',
       required: true,
       options: nivelOptions,
     },
     {
       order: 8,
-      type: 'radio',
+      type: 'radio' as const,
       label: 'CLUBS (24 AL 29 DE AGOSTO)',
       required: true,
       options: clubOptions,
     },
-  ]);
+  ];
+
+  await db.insert(questions).values(questionRows.map((q) => ({ ...q, formId: form.id })));
 
   console.log('Seed completado.');
 }

@@ -1,38 +1,36 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Footer from '../../components/Footer.astro';
-import AdminPanel from '../../components/admin/AdminPanel';
 import { db } from '../../db/client';
-import { formMeta, questions, responses } from '../../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { forms } from '../../db/schema';
 import { getImage } from 'astro:assets';
 import logoCiuna from '../../images/logo-ciuna.png';
 
 export const prerender = false;
 
-const [meta] = await db.select().from(formMeta).where(eq(formMeta.id, 1));
-const questionRows = await db.select().from(questions).orderBy(questions.order);
-const responseRows = await db.select().from(responses).orderBy(desc(responses.submittedAt));
-
-const publicUrl = new URL('/', Astro.url).toString();
+const formList = await db.select().from(forms).orderBy(forms.id);
 const logo = await getImage({ src: logoCiuna, width: 80, height: 80 });
 ---
 
-<Layout titulo="Editar formulario - Speaking Clubs">
+<Layout titulo="Panel de administración - CI-UNA">
   <div class="min-h-screen bg-[#f0ead6] py-8 px-4 flex flex-col">
-    <div class="max-w-[800px] mx-auto w-full flex-1">
-      <AdminPanel
-        client:load
-        initialMeta={meta ?? { title: '', description: '', acceptingResponses: true }}
-        initialQuestions={questionRows}
-        initialResponses={responseRows.map((r) => ({
-          id: r.id,
-          submittedAt: r.submittedAt.toISOString(),
-          answers: r.answers,
-        }))}
-        publicUrl={publicUrl}
-        logoUrl={logo.src}
-      />
+    <div class="max-w-[700px] mx-auto w-full flex-1 space-y-4">
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex items-center gap-3">
+        <img src={logo.src} alt="CI-UNA" class="w-10 h-10 rounded-full" />
+        <h1 class="text-xl font-semibold text-gray-800">Panel de administración</h1>
+      </div>
+
+      <div class="space-y-3">
+        {formList.map((form) => (
+          <a
+            href={`/admin/${form.slug}`}
+            class="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:border-brand transition-colors"
+          >
+            <h2 class="text-lg text-gray-800 font-semibold">{form.name}</h2>
+            <p class="text-sm text-gray-500 mt-1">Editar preguntas y ver respuestas →</p>
+          </a>
+        ))}
+      </div>
     </div>
     <Footer />
   </div>

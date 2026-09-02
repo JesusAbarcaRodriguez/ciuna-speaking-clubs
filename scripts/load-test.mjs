@@ -1,11 +1,11 @@
-// Simula un pico real de inscripciones contra /api/submit, usando las
-// preguntas y opciones actuales del formulario (leídas directo de la base
-// de datos, para no depender de un snapshot que quede desactualizado).
+// Simula un pico real de inscripciones contra /api/submit/<formSlug>, usando
+// las preguntas y opciones actuales del formulario (leídas directo de la
+// base de datos, para no depender de un snapshot que quede desactualizado).
 //
 // Uso:
-//   node scripts/load-test.mjs [total] [concurrencia] [url] [--keep]
-//   node scripts/load-test.mjs 900 40 http://localhost:4321
-//   node scripts/load-test.mjs 900 40 --keep   (deja las respuestas para ver el Excel)
+//   node scripts/load-test.mjs [total] [concurrencia] [url] [formSlug] [--keep]
+//   node scripts/load-test.mjs 900 40 http://localhost:4321 speaking-clubs
+//   node scripts/load-test.mjs 900 40 http://localhost:4321 becas --keep
 //
 // Por defecto, al final borra únicamente las respuestas que él mismo creó
 // (marcadas con el correo "loadtest-*") y nunca toca datos reales.
@@ -21,6 +21,7 @@ const positional = rawArgs.filter((a) => !a.startsWith('--'));
 const TOTAL = Number(positional[0] || 300);
 const CONCURRENCY = Number(positional[1] || 20);
 const TARGET_URL = positional[2] || 'http://localhost:4321';
+const FORM_SLUG = positional[3] || 'speaking-clubs';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -65,7 +66,7 @@ async function submitOne(questions, index) {
   const answers = buildAnswers(questions, index);
   const start = Date.now();
   try {
-    const res = await fetch(`${TARGET_URL}/api/submit`, {
+    const res = await fetch(`${TARGET_URL}/api/submit/${FORM_SLUG}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers, consent: true }),
@@ -97,9 +98,16 @@ async function runBatches(questions) {
 
 async function main() {
   console.log(`Objetivo: ${TARGET_URL}`);
+  console.log(`Formulario: ${FORM_SLUG}`);
   console.log(`Total: ${TOTAL}, concurrencia: ${CONCURRENCY}\n`);
 
-  const questions = await sql`SELECT type, label, options FROM questions ORDER BY "order"`;
+  const [form] = await sql`SELECT id FROM forms WHERE slug = ${FORM_SLUG}`;
+  if (!form) {
+    console.error(`No existe el formulario "${FORM_SLUG}".`);
+    process.exit(1);
+  }
+
+  const questions = await sql`SELECT type, label, options FROM questions WHERE form_id = ${form.id} ORDER BY "order"`;
 
   const startedAt = Date.now();
   const results = await runBatches(questions);
@@ -132,7 +140,7 @@ async function main() {
     const overCapacity = await sql`
       SELECT answers ->> ${radioQuestion.label} AS club, count(*) AS n
       FROM responses
-      WHERE answers ->> 'Correo electrónico' LIKE 'loadtest-%'
+      WHERE form_id = ${form.id} AND answers ->> 'Correo electrónico' LIKE 'loadtest-%'
       GROUP BY club
       HAVING count(*) > 17
     `;
@@ -145,11 +153,11 @@ async function main() {
     );
     console.log('Para borrarlas más tarde, corré en la base:');
     console.log(
-      `  DELETE FROM responses WHERE answers ->> 'Correo electrónico' LIKE 'loadtest-%';`,
+      `  DELETE FROM responses WHERE form_id = ${form.id} AND answers ->> 'Correo electrónico' LIKE 'loadtest-%';`,
     );
   } else {
     const deleted = await sql`
-      DELETE FROM responses WHERE answers ->> 'Correo electrónico' LIKE 'loadtest-%'
+      DELETE FROM responses WHERE form_id = ${form.id} AND answers ->> 'Correo electrónico' LIKE 'loadtest-%'
     `;
     console.log(`\nLimpieza: ${deleted.count} respuestas de prueba eliminadas.`);
   }

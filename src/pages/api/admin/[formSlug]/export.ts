@@ -1,14 +1,32 @@
 import type { APIRoute } from 'astro';
-import { desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import ExcelJS from 'exceljs';
-import { db } from '../../../db/client';
-import { questions, responses } from '../../../db/schema';
+import { db } from '../../../../db/client';
+import { forms, questions, responses } from '../../../../db/schema';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
-  const questionRows = await db.select().from(questions).orderBy(questions.order);
-  const responseRows = await db.select().from(responses).orderBy(desc(responses.submittedAt));
+export const GET: APIRoute = async ({ params }) => {
+  const { formSlug } = params;
+  const [form] = await db.select().from(forms).where(eq(forms.slug, formSlug!));
+
+  if (!form) {
+    return new Response(JSON.stringify({ error: 'Formulario no encontrado.' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const questionRows = await db
+    .select()
+    .from(questions)
+    .where(eq(questions.formId, form.id))
+    .orderBy(questions.order);
+  const responseRows = await db
+    .select()
+    .from(responses)
+    .where(eq(responses.formId, form.id))
+    .orderBy(desc(responses.submittedAt));
 
   const answerable = questionRows.filter((q) => q.type !== 'info');
   const headers = ['Marca temporal', ...answerable.map((q) => q.label)];
@@ -52,7 +70,7 @@ export const GET: APIRoute = async () => {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="respuestas-${fecha}.xlsx"`,
+      'Content-Disposition': `attachment; filename="${form.slug}-respuestas-${fecha}.xlsx"`,
     },
   });
 };

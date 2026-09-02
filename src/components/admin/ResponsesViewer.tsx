@@ -19,6 +19,7 @@ interface ResponseRow {
 }
 
 interface Props {
+  formSlug: string;
   questions: QuestionRow[];
   initialResponses: ResponseRow[];
   initialAcceptingResponses: boolean;
@@ -27,6 +28,7 @@ interface Props {
 type SubView = 'resumen' | 'pregunta' | 'individual';
 
 export default function ResponsesViewer({
+  formSlug,
   questions,
   initialResponses,
   initialAcceptingResponses,
@@ -45,7 +47,7 @@ export default function ResponsesViewer({
   async function handleToggleAccepting() {
     setToggling(true);
     const next = !acceptingResponses;
-    const res = await fetch('/api/admin/accepting-responses', {
+    const res = await fetch(`/api/admin/${formSlug}/accepting-responses`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acceptingResponses: next }),
@@ -61,7 +63,7 @@ export default function ResponsesViewer({
 
   function handleExportExcel() {
     const a = document.createElement('a');
-    a.href = '/api/admin/export';
+    a.href = `/api/admin/${formSlug}/export`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -73,7 +75,7 @@ export default function ResponsesViewer({
       `¿Eliminar las ${responses.length} respuestas? Esta acción no se puede deshacer.`,
       async () => {
         setDeleting(true);
-        const res = await fetch('/api/admin/responses', { method: 'DELETE' });
+        const res = await fetch(`/api/admin/${formSlug}/responses`, { method: 'DELETE' });
         if (res.ok) {
           setResponses([]);
           setQuestionIndex(0);

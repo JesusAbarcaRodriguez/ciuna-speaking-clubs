@@ -1,15 +1,25 @@
 import type { APIRoute } from 'astro';
 import { eq } from 'drizzle-orm';
-import { db } from '../../../db/client';
-import { formMeta, questions, questionTypes } from '../../../db/schema';
+import { db } from '../../../../db/client';
+import { forms, questions, questionTypes } from '../../../../db/schema';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
-  const [meta] = await db.select().from(formMeta).where(eq(formMeta.id, 1));
-  const questionRows = await db.select().from(questions).orderBy(questions.order);
+export const GET: APIRoute = async ({ params }) => {
+  const { formSlug } = params;
+  const [form] = await db.select().from(forms).where(eq(forms.slug, formSlug!));
 
-  return new Response(JSON.stringify({ meta, questions: questionRows }), {
+  if (!form) {
+    return jsonError('Formulario no encontrado.', 404);
+  }
+
+  const questionRows = await db
+    .select()
+    .from(questions)
+    .where(eq(questions.formId, form.id))
+    .orderBy(questions.order);
+
+  return new Response(JSON.stringify({ meta: form, questions: questionRows }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
@@ -24,7 +34,14 @@ interface IncomingQuestion {
   imageKey?: string | null;
 }
 
-export const PUT: APIRoute = async ({ request }) => {
+export const PUT: APIRoute = async ({ request, params }) => {
+  const { formSlug } = params;
+  const [form] = await db.select().from(forms).where(eq(forms.slug, formSlug!));
+
+  if (!form) {
+    return jsonError('Formulario no encontrado.', 404);
+  }
+
   const body = await request.json().catch(() => null);
 
   const title = body?.meta?.title;
@@ -54,15 +71,13 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 
   await db.transaction(async (tx) => {
-    await tx
-      .insert(formMeta)
-      .values({ id: 1, title, description })
-      .onConflictDoUpdate({ target: formMeta.id, set: { title, description } });
+    await tx.update(forms).set({ title, description }).where(eq(forms.id, form.id));
 
-    await tx.delete(questions);
+    await tx.delete(questions).where(eq(questions.formId, form.id));
 
     await tx.insert(questions).values(
       incomingQuestions.map((q, index) => ({
+        formId: form.id,
         order: index + 1,
         type: q.type as (typeof questionTypes)[number],
         label: q.label,
@@ -80,9 +95,9 @@ export const PUT: APIRoute = async ({ request }) => {
   });
 };
 
-function jsonError(message: string) {
+function jsonError(message: string, status = 400) {
   return new Response(JSON.stringify({ error: message }), {
-    status: 400,
+    status,
     headers: { 'Content-Type': 'application/json' },
   });
 }

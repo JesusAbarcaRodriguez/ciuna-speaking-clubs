@@ -1,14 +1,21 @@
 import type { APIRoute } from 'astro';
 import { eq } from 'drizzle-orm';
-import { db } from '../../db/client';
-import { formMeta, questions, responses } from '../../db/schema';
+import { db } from '../../../db/client';
+import { forms, questions, responses } from '../../../db/schema';
 
 export const prerender = false;
 
 const TEXT_ONLY_PATTERN = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü' -]+$/;
 const NUMERIC_PATTERN = /^[0-9]+$/;
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, params }) => {
+  const { formSlug } = params;
+  const [form] = await db.select().from(forms).where(eq(forms.slug, formSlug!));
+
+  if (!form) {
+    return jsonError('Formulario no encontrado.', 404);
+  }
+
   const body = await request.json().catch(() => null);
   const answers = body?.answers;
 
@@ -20,8 +27,7 @@ export const POST: APIRoute = async ({ request }) => {
     return jsonError('Debes aceptar el uso de tus datos para poder inscribirte.');
   }
 
-  const [meta] = await db.select().from(formMeta).where(eq(formMeta.id, 1));
-  if (meta && !meta.acceptingResponses) {
+  if (!form.acceptingResponses) {
     return jsonError('Este formulario ya no acepta respuestas.');
   }
 
@@ -31,7 +37,11 @@ export const POST: APIRoute = async ({ request }) => {
     return jsonError('Los correos no coinciden.');
   }
 
-  const questionRows = await db.select().from(questions).orderBy(questions.order);
+  const questionRows = await db
+    .select()
+    .from(questions)
+    .where(eq(questions.formId, form.id))
+    .orderBy(questions.order);
 
   for (const q of questionRows) {
     if (q.type === 'info') continue;
@@ -56,7 +66,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
-    await db.insert(responses).values({ answers });
+    await db.insert(responses).values({ formId: form.id, answers });
   } catch (err) {
     const message = extractPgErrorMessage(err);
     if (message?.includes('CLUB_FULL')) {
@@ -92,9 +102,9 @@ function extractPgErrorMessage(err: unknown): string | null {
   return null;
 }
 
-function jsonError(message: string) {
+function jsonError(message: string, status = 400) {
   return new Response(JSON.stringify({ error: message }), {
-    status: 400,
+    status,
     headers: { 'Content-Type': 'application/json' },
   });
 }
