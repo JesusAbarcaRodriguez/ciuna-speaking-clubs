@@ -1,4 +1,8 @@
 ---
+// La raíz siempre fue la URL pública de Speaking Clubs (ya compartida en
+// volantes, WhatsApp, etc.) — no puede cambiar. Reescribe internamente hacia
+// la ruta dinámica del formulario sin cambiar lo que el usuario ve en la
+// barra de direcciones.
 export const prerender = false;
-return Astro.redirect('/admin/login');
+return Astro.rewrite('/speaking-clubs');
 ---
