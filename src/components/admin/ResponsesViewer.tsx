@@ -44,6 +44,22 @@ export default function ResponsesViewer({
 
   const answerableQuestions = useMemo(() => questions.filter((q) => q.type !== 'info'), [questions]);
 
+  // La pregunta de tipo "radio" es, por convención de este proyecto, la
+  // pregunta de club/horario (ver sql/006_scope_triggers_to_form.sql).
+  const clubQuestion = useMemo(() => questions.find((q) => q.type === 'radio') ?? null, [questions]);
+
+  const clubCounts = useMemo(() => {
+    if (!clubQuestion) return [];
+    const counts = new Map<string, number>();
+    for (const opt of clubQuestion.options || []) counts.set(opt, 0);
+    for (const r of responses) {
+      const val = r.answers[clubQuestion.label];
+      if (val === undefined || val === '') continue;
+      counts.set(val, (counts.get(val) || 0) + 1);
+    }
+    return [...counts.entries()];
+  }, [clubQuestion, responses]);
+
   async function handleToggleAccepting() {
     setToggling(true);
     const next = !acceptingResponses;
@@ -64,6 +80,24 @@ export default function ResponsesViewer({
   function handleExportExcel() {
     const a = document.createElement('a');
     a.href = `/api/admin/${formSlug}/export`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast.success('Archivo descargado.');
+  }
+
+  function handleExportByClub(club: string) {
+    const a = document.createElement('a');
+    a.href = `/api/admin/${formSlug}/export?club=${encodeURIComponent(club)}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast.success('Archivo descargado.');
+  }
+
+  function handleExportGroupedByClub() {
+    const a = document.createElement('a');
+    a.href = `/api/admin/${formSlug}/export?groupBy=club`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -112,6 +146,15 @@ export default function ResponsesViewer({
         toggling={toggling}
         onToggle={handleToggleAccepting}
       />
+
+      {clubQuestion && (
+        <ExportByClub
+          question={clubQuestion}
+          counts={clubCounts}
+          onExportAll={handleExportGroupedByClub}
+          onExportOne={handleExportByClub}
+        />
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -212,6 +255,61 @@ function AcceptingBanner({
       >
         {acceptingResponses ? 'Dejar de aceptar respuestas' : 'Aceptar respuestas'}
       </button>
+    </div>
+  );
+}
+
+function ExportByClub({
+  question,
+  counts,
+  onExportAll,
+  onExportOne,
+}: {
+  question: QuestionRow;
+  counts: [string, number][];
+  onExportAll: () => void;
+  onExportOne: (club: string) => void;
+}) {
+  const totalWithClub = counts.reduce((sum, [, count]) => sum + count, 0);
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+        <h2 className="text-lg font-semibold text-gray-800">Exportar por club</h2>
+        <button
+          type="button"
+          onClick={onExportAll}
+          disabled={totalWithClub === 0}
+          className="text-sm border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 disabled:opacity-40"
+        >
+          Descargar todos los clubs (una pestaña por club)
+        </button>
+      </div>
+      <p className="text-sm text-gray-500 mb-4">
+        Un excel independiente por cada opción de "{question.label}".
+      </p>
+      {counts.length === 0 ? (
+        <p className="text-sm text-gray-500">Esta pregunta todavía no tiene opciones configuradas.</p>
+      ) : (
+        <div className="max-h-72 overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-md">
+          {counts.map(([club, count]) => (
+            <div key={club} className="flex items-center justify-between gap-3 py-2 px-3 text-sm">
+              <span className="text-gray-700">{club}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-gray-400">{count}</span>
+                <button
+                  type="button"
+                  onClick={() => onExportOne(club)}
+                  disabled={count === 0}
+                  className="text-xs border border-gray-300 rounded-md px-2 py-1 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Descargar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
